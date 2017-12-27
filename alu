@@ -1,0 +1,105 @@
+------------------------------------------------------------------------------
+-- Project: risc_i_16
+-- Author:   
+-- Date:    
+-- History:
+-- 2017-12-3 this is only part of ALU
+-- initial version consists of complete entity, complete ADD module and its input add_cin and add_b
+-- missing output generation
+-- missing functionality of other alu functions like shr, shl, and, not, xor, or etc
+--  
+------------------------------------------------------------------------------
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_misc.all;
+use ieee.numeric_std.all;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+
+
+library work;
+use work.risc_i_16_pack.all;
+
+entity alu is
+  
+  -- we do not use data_vec_t to be able to modify the bit width for
+  -- functional testing purpose
+  generic (
+    bit_width_g :     integer := 16);
+
+  port (
+    side_a_i    : in  std_ulogic_vector(bit_width_g - 1 downto 0);
+    side_b_i    : in  std_ulogic_vector(bit_width_g - 1 downto 0);
+    carry_i     : in  std_ulogic;
+    alu_func_i  : in  alu_func_t;
+
+    result_o    : out std_ulogic_vector(bit_width_g - 1 downto 0);
+    carry_o     : out std_ulogic;
+    zero_o      : out std_ulogic);
+  
+end alu;
+
+architecture rtl of alu is
+
+  -- helper signals for adder
+  signal add_b    : std_ulogic_vector(bit_width_g - 1 downto 0);
+  signal add_cin  : std_ulogic;
+  signal add_res  : std_ulogic_vector(bit_width_g - 1 downto 0);
+  signal add_cout : std_ulogic;
+  
+begin
+-- home work : add you code in this part to fulfill all the missing function of ALU
+func:process(side_a_i, side_b_i, carry_i, alu_func_i)
+variable res : std_ulogic_vector(bit_width_g - 1 downto 0);
+variable res_v : unsigned(bit_width_g + 1 downto 0);
+begin
+    case alu_func_i is
+        when alu_and_c => --and
+          res := side_a_i and side_b_i;
+        when alu_or_c =>--or
+           res := side_a_i or side_b_i;
+        when alu_xor_c =>--xor
+           res := side_a_i xor side_b_i;
+        when alu_not_c =>--not
+           res := not side_a_i;
+        when alu_slc_c =>--shl,shlc
+           res := side_a_i(bit_width_g - 2 downto 0) & '0';
+        when alu_src_c => --shr,shrc
+            if side_a_i(bit_width_g - 1) = '0' then
+                res := '0' & side_a_i(bit_width_g - 1 downto 1);
+            else
+                res := '1' & side_a_i(bit_width_g - 1 downto 1);
+            end if;
+			when alu_pass_a_c => null;
+			when alu_pass_b_c => null;
+			--the above two items are reserved for alu_pass_a_i and alu_pass_b_i since we don't know their functionalities
+			when others => --add,sub,inc,dec
+				case alu_func_i is
+				when alu_add_c =>
+					add_cin <= carry_i;
+					add_b <= side_b_i;
+				when alu_sub_c =>
+					add_cin <= not carry_i;
+					add_b <= not side_b_i;
+				when alu_inc_c =>
+					add_cin <= '0';
+					add_b <= std_ulogic_vector(to_unsigned(1, add_b'length));
+				when alu_dec_c =>
+					add_cin <= '1';
+					add_b <= not std_ulogic_vector(to_unsigned(1, add_b'length));
+				when others =>
+					null;
+				end case;
+				res_v := unsigned('0' & side_a_i & '1') + unsigned('0' & add_b & add_cin);
+				res  := std_ulogic_vector(res_v(res_v'high - 1 downto res_v'low + 1));
+				carry_o <= res_v(res_v'high);
+		end case;
+    if res = "0000000000000000" then  
+        zero_o <= '1';
+    else 
+        zero_o <= '0';
+    end if;
+	 result_o <= res;
+end process func;
+
+end rtl;
